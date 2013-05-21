@@ -1,9 +1,12 @@
 # TTT_state.py - Handles Tic Tac Toe Game State and Moves
 # Ari Cohen
 
-# quarto_state.py
-# Sean Straw & Ari Cohen
-from quarto_interface import *  # maybe split Board into logical info and display info?
+from TTT_interface import *
+#from TTT_player import *
+
+class Piece():
+    X = 3
+    O = 4
 
 class GameStatus():
     PLAYING = 1
@@ -61,6 +64,7 @@ class GameState():
     def __init__(self, interface_state):
         self.squares = [GameState.EMPTY]*9
         self.interface_state = interface_state
+        self.current_player = 1
     
     def reset(self):
         self.squares = [GameState.EMPTY]*9
@@ -77,71 +81,53 @@ class GameState():
     def make_move(self, move):
         self.set_square_piece(move.get_row_placement(),
                               move.get_col_placement(),
-                              self.get_current_piece())
+                              move.get_piece())
 
     def get_interface(self):
         return self.interface_state
 
+    def set_current_player(self, player):
+        self.current_player = player
 
-########################################################################
-###### EVERYTHING BELOW HERE NEEDS TO BE REDONE FOR TIC TAC TOE ########
-########################################################################
+    def get_current_player(self):
+        return self.current_player
+
+    def toggle_players(self):
+        # Oscillate between 1 and 2
+        self.current_player = ((self.current_player * 2) % 3)
+
+    def get_current_piece(self):
+        if (self.current_player == 1):
+            return Piece.X
+        else:
+            return Piece.O
+
     
-def check_pieces_for_win(p1, p2, p3, p4):
-    if (p1 < 0) or (p2 < 0) or (p3 < 0) or (p4 < 0):
-        return False
-    return ((((p1^p2) | (p1^p3) | (p1^p4))^15) != 0)
+def check_pieces_for_win(p1, p2, p3):
+    return (p1 == p2 == p3 != GameState.EMPTY)
 
-# This checks that the move is legal
-# 1) the placement needs to be in a currently empty square
-# 2) the selected piece needs to be available - unused at the moment
-#        - the one exception is if all pieces have been placed
-# If the move is legal, it then looks for a win, tie, or end of game condition
-def check_move(main_game_state, move):
-    row = move.get_row_placement()
-    col = move.get_col_placement()
-    #create copy so we don't disrupt anything when testing moves
-    game_state = copy_game_state(main_game_state) 
-    piece_to_move = game_state.get_current_piece()
-    new_piece_to_move = move.get_piece()
-    availability = game_state.get_available_pieces()
-    if game_state.get_square_piece(row, col) != GameState.EMPTY:
-        # moving into an occupied square, so complain
-        return [MoveStatus.ILLEGAL_MOVE, GameStatus.PLAYING]
-    # if a real piece is moved, make sure it is available
-    if (new_piece_to_move != GameState.EMPTY) and (availability[new_piece_to_move] == GameState.UNAVAILABLE):
-        return [MoveStatus.ILLEGAL_MOVE, GameStatus.PLAYING]
-    # See if there is a win - if so, don't check new_piece_to_move
+
+def check_for_win(game_state):
     squares = game_state.get_squares()
-    squares[4*row + col] = piece_to_move # make the move so we can analyze the board
     for places in GameMove.LINES:
         if check_pieces_for_win(squares[places[0]], squares[places[1]],
-                                squares[places[2]], squares[places[3]]):
-            game_state.set_square_piece(row, col, GameState.EMPTY)
-            return [MoveStatus.LEGAL_MOVE, GameStatus.WIN]
-    # no win, so make sure new_piece_to_move is legitimate if it is EMPTY
-    if new_piece_to_move == GameState.EMPTY:
-        # check to see if all pieces are used up
-        available_pieces = []
-        for i in range(16):
-            if availability[i] == GameState.AVAILABLE:
-                available_pieces.append(i)
-        list_length = len(available_pieces)
-        if list_length != 0:
-            # pieces were available, so complain
-            return [MoveStatus.ILLEGAL_MOVE, GameStatus.PLAYING]
-        # this is legal, but there are no moves left - so it is a tie
-        return [MoveStatus.LEGAL_MOVE, GameStatus.TIE]
-    return [MoveStatus.LEGAL_MOVE, GameStatus.PLAYING]
+                                squares[places[2]]):
+            return GameStatus.WIN
+    # no win, so check for tie
+    tie = True
+    for square in squares:
+        if (square == GameState.EMPTY):
+            tie = False
+    if (tie):
+        return GameStatus.TIE
+    else:
+        return GameStatus.PLAYING
 
 def copy_game_state(game_state):
     new_game_state = GameState(game_state.interface_state)
-    new_game_state.set_current_piece(game_state.get_current_piece())
-    piece_list = game_state.get_available_pieces()
+    new_game_state.set_current_player(game_state.get_current_player())
     square_list = game_state.get_squares()
-    for piece in range(16):
-        if(piece_list[piece] == GameState.UNAVAILABLE):
-            new_game_state.remove_available_piece(piece)
+    for piece in range(9):
         if(square_list[piece] != GameState.EMPTY):
-            new_game_state.set_square_piece(piece/4,piece%4,square_list[piece])
+            new_game_state.set_square_piece(piece/3,piece%3,square_list[piece])
     return new_game_state
